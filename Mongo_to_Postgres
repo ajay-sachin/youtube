@@ -1,0 +1,217 @@
+import csv
+import json
+import os
+from typing import Dict
+
+import psycopg2
+import pymongo
+from relationalize import Relationalize, Schema
+from relationalize.utils import create_local_file
+
+MONGO_HOST = "cluster0.zqfynlh.mongodb.net"
+MONGO_USERNAME = "ajaysachin"
+MONGO_PASSWORD = "ajay1234"
+MONGO_DB = "youtube"
+MONGO_COLLECTION = "Scrapper"
+
+PG_HOST = "DB"
+PG_PORT = 5432
+PG_USERNAME = "ajaysachin"
+PG_PASSWORD = "ajay1234"
+PG_DB = "postgres"
+PG_SCHEMA = "public"
+
+MONGO_CONNECTION_STRING = f"mongodb+srv://ajaysachin:xxxxxxxx@cluster0.zqfynlh.mongodb.net/?retryWrites=true&w=majority&appName=AtlasApp"
+
+
+print("-" * 20)
+print(f"Exporting {MONGO_COLLECTION} from {MONGO_HOST} into export.json")
+data_collection = pymongo.MongoClient(MONGO_CONNECTION_STRING)[MONGO_DB][
+    MONGO_COLLECTION
+]
+with open("export.json", "w") as export_file:
+    for document in data_collection.find():
+        export_file.write(f"{json.dumps(document, default=str)}\n")
+
+
+schemas: Dict[str, Schema] = {}
+
+# this gets called when a relationalized object is written to the temporary file.
+def on_object_write(schema: str, object: dict):
+    if schema not in schemas:
+        schemas[schema] = Schema()
+    schemas[schema].read_object(object)
+
+
+def create_iterator(filename):
+    with open(filename, "r") as infile:
+        for line in infile:
+            yield json.loads(line)
+
+
+print("-" * 20)
+print(f"Relationalizing {MONGO_COLLECTION} from local file export.json")
+os.makedirs("temp", exist_ok=True)
+with Relationalize(MONGO_COLLECTION, create_local_file("temp"), on_object_write) as r:
+    r.relationalize(create_iterator("export.json"))
+
+print("-" * 20)
+print(f"Converting objects for {len(schemas)} relationalized schemas.")
+os.makedirs("final", exist_ok=True)
+for schema_name, schema in schemas.items():
+    print(f"Converting objects for schema {schema_name}.")
+    with open(
+        os.path.join("final", f"{schema_name}.csv"),
+        "w",
+    ) as final_file:
+        writer = csv.DictWriter(final_file, fieldnames=schema.generate_output_columns())
+        writer.writeheader()
+        for row in create_iterator(os.path.join("temp", f"{schema_name}.json")):
+            converted_obj = schema.convert_object(row)
+            writer.writerow(converted_obj)
+
+print("-" * 20)
+print((f"Copying data to Postgres using {PG_HOST} " f"DB {PG_DB} SCHEMA {PG_SCHEMA}"))
+conn = psycopg2.connect(
+    host=PG_HOST,
+    port=PG_PORT,
+    dbname=PG_DB,
+    user=PG_USERNAME,
+    password=PG_PASSWORD,
+)
+
+cursor = conn.cursor()
+
+for schema_name, schema in schemas.items():
+    print("-" * 20)
+    print(f"Copying data for schema {schema_name}.")
+    drop_table_statement = f'DROP TABLE IF EXISTS "{PG_SCHEMA}"."{schema_name}";'
+    create_table_statement = schema.generate_ddl(table=schema_name, schema=PG_SCHEMA)
+
+    print("Executing drop table statement.")
+    cursor.execute(drop_table_statement)
+    conn.commit()
+
+    print("Executing create table statement.")
+    cursor.execute(create_table_statement)
+    conn.commit()
+
+    print("Executing copy statement.")
+    with open(os.path.join("final", f"{schema_name}.csv"), "r") as final_file:
+        cursor.copy_expert(
+            f"COPY {PG_SCHEMA}.{schema_name} from STDIN DELIMITER ',' CSV HEADER;",
+            final_file,
+        )
+    conn.commit()
+
+
+print("-" * 20)
+print("Pipeline Complete")import csv
+import json
+import os
+from typing import Dict
+
+import psycopg2
+import pymongo
+from relationalize import Relationalize, Schema
+from relationalize.utils import create_local_file
+
+MONGO_HOST = "cluster0.zqfynlh.mongodb.net"
+MONGO_USERNAME = "ajaysachin"
+MONGO_PASSWORD = "ajay1234"
+MONGO_DB = "youtube"
+MONGO_COLLECTION = "Scrapper"
+
+PG_HOST = "DB"
+PG_PORT = 5432
+PG_USERNAME = "ajaysachin"
+PG_PASSWORD = "ajay1234"
+PG_DB = "postgres"
+PG_SCHEMA = "public"
+
+MONGO_CONNECTION_STRING = f"mongodb+srv://ajaysachin:xxxxxxxx@cluster0.zqfynlh.mongodb.net/?retryWrites=true&w=majority&appName=AtlasApp"
+
+
+print("-" * 20)
+print(f"Exporting {MONGO_COLLECTION} from {MONGO_HOST} into export.json")
+data_collection = pymongo.MongoClient(MONGO_CONNECTION_STRING)[MONGO_DB][
+    MONGO_COLLECTION
+]
+with open("export.json", "w") as export_file:
+    for document in data_collection.find():
+        export_file.write(f"{json.dumps(document, default=str)}\n")
+
+
+schemas: Dict[str, Schema] = {}
+
+# this gets called when a relationalized object is written to the temporary file.
+def on_object_write(schema: str, object: dict):
+    if schema not in schemas:
+        schemas[schema] = Schema()
+    schemas[schema].read_object(object)
+
+
+def create_iterator(filename):
+    with open(filename, "r") as infile:
+        for line in infile:
+            yield json.loads(line)
+
+
+print("-" * 20)
+print(f"Relationalizing {MONGO_COLLECTION} from local file export.json")
+os.makedirs("temp", exist_ok=True)
+with Relationalize(MONGO_COLLECTION, create_local_file("temp"), on_object_write) as r:
+    r.relationalize(create_iterator("export.json"))
+
+print("-" * 20)
+print(f"Converting objects for {len(schemas)} relationalized schemas.")
+os.makedirs("final", exist_ok=True)
+for schema_name, schema in schemas.items():
+    print(f"Converting objects for schema {schema_name}.")
+    with open(
+        os.path.join("final", f"{schema_name}.csv"),
+        "w",
+    ) as final_file:
+        writer = csv.DictWriter(final_file, fieldnames=schema.generate_output_columns())
+        writer.writeheader()
+        for row in create_iterator(os.path.join("temp", f"{schema_name}.json")):
+            converted_obj = schema.convert_object(row)
+            writer.writerow(converted_obj)
+
+print("-" * 20)
+print((f"Copying data to Postgres using {PG_HOST} " f"DB {PG_DB} SCHEMA {PG_SCHEMA}"))
+conn = psycopg2.connect(
+    host=PG_HOST,
+    port=PG_PORT,
+    dbname=PG_DB,
+    user=PG_USERNAME,
+    password=PG_PASSWORD,
+)
+
+cursor = conn.cursor()
+
+for schema_name, schema in schemas.items():
+    print("-" * 20)
+    print(f"Copying data for schema {schema_name}.")
+    drop_table_statement = f'DROP TABLE IF EXISTS "{PG_SCHEMA}"."{schema_name}";'
+    create_table_statement = schema.generate_ddl(table=schema_name, schema=PG_SCHEMA)
+
+    print("Executing drop table statement.")
+    cursor.execute(drop_table_statement)
+    conn.commit()
+
+    print("Executing create table statement.")
+    cursor.execute(create_table_statement)
+    conn.commit()
+
+    print("Executing copy statement.")
+    with open(os.path.join("final", f"{schema_name}.csv"), "r") as final_file:
+        cursor.copy_expert(
+            f"COPY {PG_SCHEMA}.{schema_name} from STDIN DELIMITER ',' CSV HEADER;",
+            final_file,
+        )
+    conn.commit()
+
+
+print("-" * 20)
+print("Pipeline Complete")
