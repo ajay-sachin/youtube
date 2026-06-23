@@ -5,7 +5,7 @@ from googleapiclient.discovery import build
 from pymongo import MongoClient
 import csv
 
-api_key = "AIzaSyABi2XonLSZIeHvo35TDZhO7UgHpsXWrts"
+api_key = "AIzaSyABi2XonLSZIeHvobugg7ut"
 channel_id = ['UCl23mvQ3321L7zO6JyzhVmg',  #mumbai_indians
               'UC2J_VKrAzOEJuQvFFtj3KUw',  #chennai_super_kings
               'UCCq1xDJMBRF61kiOgU90_kw',  #royal_challengers_bangalore
