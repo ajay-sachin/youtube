@@ -9,8 +9,8 @@ from relationalize import Relationalize, Schema
 from relationalize.utils import create_local_file
 
 MONGO_HOST = "cluster0.zqfynlh.mongodb.net"
-MONGO_USERNAME = "ajaysachin"
-MONGO_PASSWORD = "ajay1234"
+MONGO_USERNAME = "ajay*****"
+MONGO_PASSWORD = "*******"
 MONGO_DB = "youtube"
 MONGO_COLLECTION = "Scrapper"
 
